@@ -1,45 +1,60 @@
 import streamlit as st
-import h5py
-import pandas as pd
-import tensorflow as tf
+import joblib
+import numpy as np
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from tensorflow import keras 
 
-# Assuming you have your dataset of factors affecting cervical cancer in a CSV file
-DATA_FILE = 'risk_factors_cervical_cancer.csv'
-# Assuming you have your trained FNN model saved in a file
-MODEL_FILE = 'CervixCancerDetector.ipynb'
+#load our model
+model_3 = joblib.load('CC.pkl')
 
-# Load and preprocess the dataset
-def load_dataset():
-    df = pd.read_csv(DATA_FILE)
-    # Perform any necessary preprocessing steps (e.g., handling missing values, encoding categorical variables)
-    return df
+#create UI
+st.title('Cervix Cancer Questionnaire')
 
-df = load_dataset()
+# create dictionary to save response
+responses = {}
+yes_no_mapping = {'Yes': 1, 'No': 0}
 
-# Perform any necessary preprocessing steps on the features (e.g., scaling)
-scaler = StandardScaler()
+#question
+Q1 = st.number_input("How long have you been smoking?",min_value=0)
+responses['Smoke_years'] = Q1
+Q2 = st.number_input("Have you used hormonal contraceptives? For how many years have you used hormonal contraceptives?",min_value=0)
+responses['Hormonal_Contraceptives'] = Q2
+Q3 = st.radio("Have you used IUD (Intrauterine Device)?",["Yes","No"])
+responses['IUD_years'] = yes_no_mapping[Q3]
+Q4 = st.radio("Have you been infected by any STDs",["Yes","No"])
+responses['STDs'] = yes_no_mapping[Q4]
+Q5 = st.number_input("How many STDs have been infected?",min_value=0)
+responses['STDs_number'] = Q5
+Q6 = st.number_input("Have many STDs diagnosis have you taken?",min_value=0)
+responses['STDs:Number_of_diagnosis'] = Q6
+Q7 = st.radio("Have you been diagnosed with cancer?",["Yes","No"])
+responses['Dx:Cancer'] = yes_no_mapping[Q7]
+Q8 = st.radio("Have you been diagnosed with HPV?",["Yes","No"])
+responses['Dx:HPV'] = yes_no_mapping[Q8]
+Q9 = st.radio("Have you been diagnosed with any other disease?",["Yes","No"])
+responses['Dx'] = yes_no_mapping[Q9]
 
-# Load the trained FNN model
-model = tf.keras.models.load_model(MODEL_FILE)
 
-# Configure the Streamlit app
-st.title('Cervical Cancer Predictor Questionnaire')
 
-# Create input widgets for each feature in the dataset
-feature_columns = df.columns[:-1]  # Exclude the target column
-answers = []
 
-for column in feature_columns:
-    answer = st.selectbox(f"Select {column}", df[column].unique())
-    answers.append(answer)
+# Perform prediction
+# Perform prediction
+input_vector = np.array([[Q1, Q2, responses['IUD_years'], responses['STDs'],
+                          Q5, Q6, responses['Dx:Cancer'],
+                          responses['Dx:HPV'],
+                          responses['Dx']]])
 
-# Preprocess the answers
-answers = scaler.transform([answers])
+input_vector = input_vector.astype('float32')
 
-# Predict the probability of getting cervical cancer based on the user's answers
-prediction = model.predict(answers)[0][0]
+input_vector = input_vector.astype('float32')
+input_vector = np.reshape(input_vector, (1, input_vector.shape[1]))
+predicted_proba = model_3.predict(input_vector)
+prob = predicted_proba[0]
+# Convert probability to percentage
+percentage = float(prob) * 100
 
-# Display the prediction
-st.subheader("Cervical Cancer Probability")
-st.write(f"The predicted probability of getting cervical cancer is: {prediction:.4f}")
+# Display prediction result
+st.subheader('Prediction Result')
+st.write(f'Based on the provided information, you are predicted to have a {percentage:.2f}% risk of cervix cancer.')
+
